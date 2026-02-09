@@ -1,0 +1,44 @@
+<!-- header.html -->
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container-fluid">
+    <button
+      class="btn btn-outline-light d-md-none"
+      type="button"
+      data-bs-toggle="offcanvas"
+      data-bs-target="#sidebar"
+    >
+      ☰
+    </button>
+
+    <span class="navbar-brand ms-2">🏥 Hospital Management System</span>
+  </div>
+</nav>
+
+<div class="container-fluid">
+  <div class="row g-0">
+
+    <!-- SIDEBAR -->
+    <div
+      id="sidebar"
+      class="offcanvas offcanvas-start sidebar bg-primary text-white"
+      tabindex="-1"
+    >
+      <div class="offcanvas-header d-md-none">
+        <h5 class="offcanvas-title">Menu</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="offcanvas"
+        ></button>
+      </div>
+
+      <div class="offcanvas-body p-3">
+        <h5 class="d-none d-md-block">Menu</h5>
+        <a href="index.html">Dashboard</a>
+        <a href="patients.html">Patients</a>
+        <a href="doctors.html">Doctors</a>
+        <a href="appointments.html">Appointments</a>
+      </div>
+    </div>
