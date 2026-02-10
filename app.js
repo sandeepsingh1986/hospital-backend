@@ -155,6 +155,32 @@ app.post('/api/mobile/appointments', (req, res) => {
   );
 });
 
+
+app.get('/api/test', (req, res) => {
+  res.json({
+    status: "OK",
+    message: "Backend connected successfully"
+  });
+});
+
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+
+  // TEMP test credentials
+  if (email === "admin@test.com" && password === "123456") {
+    return res.json({
+      success: true,
+      message: "Login successful"
+    });
+  }
+
+  res.status(401).json({
+    success: false,
+    message: "Invalid email or password"
+  });
+});
+
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
