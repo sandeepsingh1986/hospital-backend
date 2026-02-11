@@ -1,10 +1,21 @@
 const authJwt = require('./middleware/authJwt');
 require('dotenv').config();
 
+
+const { Pool } = require("pg");
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+
 const express = require('express');
 const path = require('path');   // ✅ ADD THIS LINE
 const session = require('express-session');
-const db = require('./database');
+
 
 const app = express();
 
@@ -90,23 +101,32 @@ app.post('/api/mobile/login', (req, res) => {
 });
 
 // ---------------- PATIENTS ----------------
-app.get('/api/mobile/patients', (req, res) => {
-  db.all(`SELECT * FROM patients`, [], (err, rows) => {
-    if (err) return res.status(500).json({ success: false, message: err });
-    res.json({ success: true, patients: rows });
-  });
+app.get('/api/mobile/patients', async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM patients");
+    res.json({ success: true, patients: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-app.post('/api/mobile/patients', (req, res) => {
+
+app.post('/api/mobile/patients', async (req, res) => {
   const { name, age, gender } = req.body;
-  db.run(`INSERT INTO patients (name, age, gender) VALUES (?, ?, ?)`,
-    [name, age, gender],
-    function(err) {
-      if (err) return res.status(500).json({ success: false, message: err });
-      res.json({ success: true, id: this.lastID });
-    }
-  );
+
+  try {
+    const result = await pool.query(
+      "INSERT INTO patients (name, age, gender) VALUES ($1, $2, $3) RETURNING id",
+      [name, age, gender]
+    );
+
+    res.json({ success: true, id: result.rows[0].id });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
+
 
 // ---------------- DOCTORS ----------------
 app.get('/api/mobile/doctors', (req, res) => {
@@ -188,3 +208,19 @@ app.listen(PORT, () => {
 });
 
 
+
+
+pool.connect()
+  .then(() => console.log("✅ Connected to Railway DB"))
+  .catch(err => console.error("❌ DB Connection Error:", err));
+
+console.log("DATABASE_URL:", process.env.DATABASE_URL ? "Exists" : "Missing");
+
+
+pool.query("SELECT NOW()", (err, res) => {
+  if (err) {
+    console.error("DB connection error:", err);
+  } else {
+    console.log("DB connected:", res.rows[0]);
+  }
+});

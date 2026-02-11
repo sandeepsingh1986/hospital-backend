@@ -1,7 +1,7 @@
-const sqlite3 = require('sqlite3').verbose();
-const { google } = require('googleapis');
+const Database = require('better-sqlite3');
+const db = new Database('hospital.db');
 
-const db = new sqlite3.Database('./hospital.db');
+const { google } = require('googleapis');
 
 const auth = new google.auth.GoogleAuth({
   keyFile: 'credentials.json',
@@ -29,14 +29,10 @@ async function writeSheet(tabName, headers, rows) {
 }
 
 async function syncTable(tabName, query, headers) {
-  return new Promise((resolve, reject) => {
-    db.all(query, [], async (err, rows) => {
-      if (err) return reject(err);
-      await writeSheet(tabName, headers, rows);
-      resolve();
-    });
-  });
+  const rows = db.prepare(query).all();
+  await writeSheet(tabName, headers, rows);
 }
+
 
 async function syncAll() {
   try {

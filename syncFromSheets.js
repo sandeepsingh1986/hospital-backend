@@ -1,51 +1,52 @@
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
+const db = new Database('hospital.db');
+
 const { google } = require('googleapis');
 
 const SPREADSHEET_ID = '1L2sFqDwfjh3-QPEANF6jTu9DKdEpqyvWAorVSLcMOZM';
-
-const db = new sqlite3.Database('./hospital.db');
 
 const auth = new google.auth.GoogleAuth({
   keyFile: 'credentials.json',
   scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
 });
 
-
-async function syncUsers() {
+async function getSheets() {
   const client = await auth.getClient();
-  const sheets = google.sheets({ version: 'v4', auth: client });
+  return google.sheets({ version: 'v4', auth: client });
+}
+
+/* ---------- USERS ---------- */
+async function syncUsers() {
+  const sheets = await getSheets();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: 'Users!A2:C', // id, email, role
+    range: 'Users!A2:C',
   });
 
   const rows = res.data.values || [];
 
-  rows.forEach(([id, email, role]) => {
-    db.run(
-      `
-      INSERT INTO users (id, email, role)
-      VALUES (?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        email = excluded.email,
-        role = excluded.role
-      `,
-      [id, email, role],
-      err => {
-        if (err) console.error('User sync error:', err.message);
-      }
-    );
+  const stmt = db.prepare(`
+    INSERT INTO users (id, email, role)
+    VALUES (?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      email = excluded.email,
+      role = excluded.role
+  `);
+
+  const trx = db.transaction(data => {
+    for (const [id, email, role] of data) {
+      stmt.run(id, email, role);
+    }
   });
 
+  trx(rows);
   console.log('✅ Users synced from Sheets');
 }
 
-
-
+/* ---------- DOCTORS ---------- */
 async function syncDoctors() {
-  const client = await auth.getClient();
-  const sheets = google.sheets({ version: 'v4', auth: client });
+  const sheets = await getSheets();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
@@ -54,26 +55,27 @@ async function syncDoctors() {
 
   const rows = res.data.values || [];
 
-  rows.forEach(([id, name, specialization]) => {
-    db.run(
-      `
-      INSERT INTO doctors (id, name, specialization)
-      VALUES (?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        specialization = excluded.specialization
-      `,
-      [id, name, specialization]
-    );
+  const stmt = db.prepare(`
+    INSERT INTO doctors (id, name, specialization)
+    VALUES (?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      specialization = excluded.specialization
+  `);
+
+  const trx = db.transaction(data => {
+    for (const [id, name, specialization] of data) {
+      stmt.run(id, name, specialization);
+    }
   });
 
+  trx(rows);
   console.log('✅ Doctors synced from Sheets');
 }
 
-
+/* ---------- PATIENTS ---------- */
 async function syncPatients() {
-  const client = await auth.getClient();
-  const sheets = google.sheets({ version: 'v4', auth: client });
+  const sheets = await getSheets();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
@@ -82,27 +84,28 @@ async function syncPatients() {
 
   const rows = res.data.values || [];
 
-  rows.forEach(([id, name, age, gender]) => {
-    db.run(
-      `
-      INSERT INTO patients (id, name, age, gender)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        age = excluded.age,
-        gender = excluded.gender
-      `,
-      [id, name, age, gender]
-    );
+  const stmt = db.prepare(`
+    INSERT INTO patients (id, name, age, gender)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      age = excluded.age,
+      gender = excluded.gender
+  `);
+
+  const trx = db.transaction(data => {
+    for (const [id, name, age, gender] of data) {
+      stmt.run(id, name, age, gender);
+    }
   });
 
+  trx(rows);
   console.log('✅ Patients synced from Sheets');
 }
 
-
+/* ---------- APPOINTMENTS ---------- */
 async function syncAppointments() {
-  const client = await auth.getClient();
-  const sheets = google.sheets({ version: 'v4', auth: client });
+  const sheets = await getSheets();
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
@@ -111,31 +114,37 @@ async function syncAppointments() {
 
   const rows = res.data.values || [];
 
-  rows.forEach(([id, patient_id, doctor_id, date, time]) => {
-    db.run(
-      `
-      INSERT INTO appointments (id, patient_id, doctor_id, date, time)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        patient_id = excluded.patient_id,
-        doctor_id = excluded.doctor_id,
-        date = excluded.date,
-        time = excluded.time
-      `,
-      [id, patient_id, doctor_id, date, time]
-    );
+  const stmt = db.prepare(`
+    INSERT INTO appointments (id, patient_id, doctor_id, date, time)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      patient_id = excluded.patient_id,
+      doctor_id = excluded.doctor_id,
+      date = excluded.date,
+      time = excluded.time
+  `);
+
+  const trx = db.transaction(data => {
+    for (const [id, patient_id, doctor_id, date, time] of data) {
+      stmt.run(id, patient_id, doctor_id, date, time);
+    }
   });
 
+  trx(rows);
   console.log('✅ Appointments synced from Sheets');
 }
 
-
+/* ---------- RUN ALL ---------- */
 async function syncAll() {
-  await syncDoctors();
-  await syncPatients();
-  await syncAppointments();
-  await syncUsers();
-  console.log('🎉 Sheets → App sync complete');
+  try {
+    await syncDoctors();
+    await syncPatients();
+    await syncAppointments();
+    await syncUsers();
+    console.log('🎉 Sheets → App sync complete');
+  } catch (err) {
+    console.error('❌ Sync failed:', err.message);
+  }
 }
 
 syncAll();
