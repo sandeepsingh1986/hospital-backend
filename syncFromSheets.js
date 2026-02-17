@@ -27,16 +27,17 @@ async function syncUsers() {
   const rows = res.data.values || [];
 
   const stmt = db.prepare(`
-    INSERT INTO users (id, email, role)
-    VALUES (?, ?, ?)
+    INSERT INTO users (id, email, password, role)
+    VALUES (?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       email = excluded.email,
+      password = excluded.password,
       role = excluded.role
   `);
 
   const trx = db.transaction(data => {
-    for (const [id, email, role] of data) {
-      stmt.run(id, email, role);
+    for (const [id, email, password, role] of data) {
+      stmt.run(id, email, password, role);
     }
   });
 

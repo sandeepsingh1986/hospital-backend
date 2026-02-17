@@ -1,7 +1,14 @@
-const Database = require('better-sqlite3');
-const db = new Database('hospital.db');
-
+require('dotenv').config();
+const { Pool } = require('pg');
 const { google } = require('googleapis');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+});
+
 
 const auth = new google.auth.GoogleAuth({
   keyFile: 'credentials.json',
@@ -18,6 +25,13 @@ async function writeSheet(tabName, headers, rows) {
     ...rows.map(row => headers.map(h => row[h] ?? ''))
   ];
 
+  // Clear sheet first
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: tabName,
+  });
+
+  // Write fresh data
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `${tabName}!A1`,
@@ -29,9 +43,11 @@ async function writeSheet(tabName, headers, rows) {
 }
 
 async function syncTable(tabName, query, headers) {
-  const rows = db.prepare(query).all();
+  const result = await pool.query(query);
+  const rows = result.rows;
   await writeSheet(tabName, headers, rows);
 }
+
 
 
 async function syncAll() {
@@ -56,8 +72,8 @@ async function syncAll() {
 
     await syncTable(
       'Users',
-      'SELECT id, email, role FROM users',
-      ['id', 'email', 'role']
+      'SELECT id, email, password, role FROM users',
+      ['id', 'email', 'password', 'role']
     );
 
     console.log('🎉 ALL tables synced TO Sheets');
